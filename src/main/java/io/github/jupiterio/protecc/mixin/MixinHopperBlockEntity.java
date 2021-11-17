@@ -26,17 +26,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(value = HopperBlockEntity.class)
 public class MixinHopperBlockEntity {
 
-    @Inject(method = "extract(Lnet/minecraft/block/entity/Hopper;Lnet/minecraft/inventory/Inventory;ILnet/minecraft/util/math/Direction;)Z", at = @At("HEAD"), cancellable = true)
-    private static void onExtract(Hopper hopper, Inventory inventory, int slot, Direction side, CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "extract(Lnet/minecraft/world/World;Lnet/minecraft/block/entity/Hopper;)Z", at = @At("HEAD"), cancellable = true)
+    private static void onExtract(World world, Hopper hopper, CallbackInfoReturnable<Boolean> cir) {
         // Get block on top of the hopper
-        World world = hopper.getWorld();
-        BlockPos blockPos = new BlockPos(hopper.getHopperX(), hopper.getHopperY() + 1.0D, hopper.getHopperZ());
-        BlockState blockState = world.getBlockState(blockPos);
-        Block block = blockState.getBlock();
+        var pos = new BlockPos(hopper.getHopperX(), hopper.getHopperY() + 1.0D, hopper.getHopperZ());
+        var state = world.getBlockState(pos);
 
         // check if it's a lockable container and get its block entity
-        if (block.hasBlockEntity()) {
-            BlockEntity blockEntity = world.getBlockEntity(blockPos);
+        if (state.hasBlockEntity()) {
+            var blockEntity = world.getBlockEntity(pos);
             if (blockEntity instanceof LockableContainerBlockEntity) {
 
                 // lockable container, check if it's locked. If it's not, let it continue. If it is, check all locks
@@ -55,20 +53,18 @@ public class MixinHopperBlockEntity {
     }
 
     @Inject(method = "insert", at = @At("HEAD"), cancellable = true)
-    private void onInsert(CallbackInfoReturnable<Boolean> cir) {
-        HopperBlockEntity hopper = (HopperBlockEntity)((Object)this);
+    private static void onInsert(World world, BlockPos pos, BlockState state, Inventory inventory, CallbackInfoReturnable<Boolean> cir) {
+        var hopper = (HopperBlockEntity)world.getBlockEntity(pos);
         // Get output block
-        World world = hopper.getWorld();
-        Direction direction = (Direction)hopper.getCachedState().get(HopperBlock.FACING);
-        BlockPos blockPos = hopper.getPos().offset(direction);
-        BlockState blockState = world.getBlockState(blockPos);
-        Block block = blockState.getBlock();
+        var direction = (Direction)state.get(HopperBlock.FACING);
+        var outputPos = hopper.getPos().offset(direction);
+        var outputState = world.getBlockState(outputPos);
 
         // check if it's a lockable container and get its block entity
-        if (block.hasBlockEntity()) {
-            BlockEntity blockEntity = world.getBlockEntity(blockPos);
-            if (blockEntity instanceof LockableContainerBlockEntity) {
-                if (!emptyLock((LockableContainerBlockEntity)hopper) && !sameLock((LockableContainerBlockEntity)hopper, (LockableContainerBlockEntity)blockEntity)) {
+        if (outputState.hasBlockEntity()) {
+            var outputBEntity = world.getBlockEntity(outputPos);
+            if (outputBEntity instanceof LockableContainerBlockEntity) {
+                if (!emptyLock(hopper) && !sameLock(hopper, (LockableContainerBlockEntity) outputBEntity)) {
                     cir.setReturnValue(false);
                 }
             }
